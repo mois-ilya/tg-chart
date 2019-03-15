@@ -11,8 +11,17 @@
 </head>
 <body>
     <h2>Followers</h2>
+
     <div class="chart-wrapper"></div>
-    <input type="number" name="start" class="start__input"step="10" value="0">
-    <input type="number" name="end" class="end__input"step="10" value="1000">
+    <input type="range" name="start" class="start__input" step="1">
+    <input type="range" name="end" class="end__input" step="1">
+
+    <template id="chart">
+        <div class="chart-wrapper">
+            <canvas class="canvas"></canvas>
+            <input type="range" name="start" class="start__input" step="1">
+            <input type="range" name="end" class="end__input" step="1">                    
+        </div>
+    </template>
 </body>
 </html>

@@ -10,7 +10,7 @@ class Chart {
             marginTopMinimap: 20,
             heightMiniMap: 60,
             get width() {
-                return this.wrapperWidth*1000 / (this.end - this.start) ;
+                return this.wrapperWidth*999 / (this.end - this.start) ;
             },
             get heightRow() {
                 return this.height / (this.rows - this.gap)
@@ -21,9 +21,7 @@ class Chart {
         }
         
         this.data = data;
-        this.drawData = {
-            countPoints: data.columns[0].length - 1
-        };
+        this.drawData = {};
 
         // create canvas
         this.canvas = document.createElement('canvas');
@@ -85,7 +83,7 @@ class Chart {
         
         ctx.beginPath();
         ctx.moveTo(xPoints[0], yPoints[0]);
-        for (let i = 0; i < this.drawData.countPoints; i++) {
+        for (let i = 0; i < xPoints.length; i++) {
             ctx.lineTo(xPoints[i],yPoints[i]);
         }
         ctx.strokeStyle = this.data.colors.y0;
@@ -194,24 +192,25 @@ class Chart {
         const gridWidth = this.config.width;
         const preXs = this.normalize(originalXs, gridWidth);
 
-        const startPoint = preXs.findIndex(point => point / gridWidth * 1000 > this.config.start) + 1;
-        const endPoint = preXs.findIndex(point => point / gridWidth * 1000  > this.config.end);
-        const countPoints = endPoint - startPoint;
+        const startPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.start) + 1;
+        const endPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.end) + 1;
 
-        this.drawData.countPoints = countPoints;
         this.drawData.startPoint = startPoint;
         this.drawData.endPoint = endPoint;
 
-        const currentXs = this.data.columns[0].slice(startPoint + 1, endPoint + 2);
-        const xScale = this.config.width;
-        const xs = this.normalize(currentXs, xScale);
+        // const currentXsL = this.data.columns[0].slice(1);
+        // const xsL = currentXsL.map(point => );
 
-        const currentYs = this.data.columns[1].slice(startPoint + 1, endPoint + 2);
+        // const currentXs = this.data.columns[0].slice(startPoint, endPoint + 2);  // + 2 because in search was been slice(1)
+        // const xScale = this.config.width;
+        // const xs = this.normalize(currentXs, xScale);
+
+        const currentYs = this.data.columns[1].slice(startPoint, endPoint + 2);
         const yScale = this.config.heightChart;
         const ys = this.normalize(currentYs, yScale);
 
         this.drawData.chart = {
-            xs: xs,
+            xs: preXs,
             ys: ys
         }
 
@@ -232,6 +231,5 @@ class Chart {
 export default Chart;
 
 // console.clear();
-// console.log("countPoints: " + countPoints);
 // console.log("startPoint: " + startPoint);
 // console.log("endPoint: " + endPoint);
