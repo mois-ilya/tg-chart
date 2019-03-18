@@ -2,8 +2,6 @@ import data from './data.js';
 import Chart from './chart.js';
 
 const chart = new Chart(data[2]);
-chart.draw();
-
 window.chart = chart;
 
 const start = document.querySelector('.start__input');
@@ -23,3 +21,5 @@ end.value = chart.config.end;
 end.addEventListener('input', () => {
     chart.setEnd(end.value);
 })
+
+chart.draw();

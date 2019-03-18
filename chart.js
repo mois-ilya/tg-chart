@@ -2,7 +2,7 @@ class Chart {
     constructor(data) {
 
         this.config = {
-            start: 0,
+            start: 100,
             end: 600,
             height: 400,
             rows: 6,
@@ -40,7 +40,7 @@ class Chart {
     redrawing() {
         const canvas = this.canvas;
         
-        canvas.width = this.config.width;
+        canvas.width = this.config.wrapperWidth;
         canvas.height = this.config.height + this.config.heightMiniMap + this.config.marginTopMinimap;
 
         this.drawGrid();
@@ -66,15 +66,6 @@ class Chart {
         this.redrawing();
     }
 
-    // setWidth(value) {
-    //     const config = this.config;
-    //     if (value < config.wrapperWidth) {
-    //         throw 'Слишком маленькая ширина графика'
-    //     }
-    //     config.width = Number(value);
-    //     this.redrawing();
-    // }
-
     drawChart () {
         const ctx = this.ctx;
         const chart = this.getParamsChart();
@@ -91,8 +82,54 @@ class Chart {
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.closePath();
+    } 
+
+    getBoundaryPoints() {
+        const originalXs = this.data.columns[0].slice(1);
+        const gridWidth = this.config.width;
+        const preXs = this.normalizeX(originalXs, gridWidth, false);
+
+        const startPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.start) + 1;
+        const endPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.end) + 1;
+
+        this.drawData.startPoint = startPoint;
+        this.drawData.endPoint = endPoint;
+
+        return {
+            startPoint: startPoint,
+            endPoint: endPoint
+        }
     }
-    
+
+    getParamsChart() {
+        const originalXs = this.data.columns[0].slice(1);
+
+        const boundaryPoints = this.getBoundaryPoints(); 
+        const startPoint = boundaryPoints.startPoint;
+        const endPoint = boundaryPoints.endPoint;
+
+        const originalXsToZero = originalXs.map(x => x - originalXs[0]);
+        const coeffAbsToOur = 999 / originalXsToZero[originalXsToZero.length - 1] ;
+
+        let currentXs = this.data.columns[0].slice(startPoint, endPoint + 2);  // + 2 because in search was been slice(1)
+            currentXs = currentXs.map(x => x - originalXs[0]); 
+        
+        let xsL = currentXs.map(x => x * coeffAbsToOur); 
+            xsL = xsL.map(x => x - this.config.start);
+            xsL = this.normalizeX(xsL, this.config.wrapperWidth, true);
+
+        const currentYs = this.data.columns[1].slice(startPoint, endPoint + 2);
+        const yScale = this.config.heightChart;
+        const ys = this.normalize(currentYs, yScale); 
+
+        this.drawData.chart = {
+            xs: xsL,
+            ys: ys
+        }
+
+        return this.drawData.chart;
+    }
+
     drawMiniMap() {
         const ctx = this.ctx;
         const miniMap = this.getParamsMiniMap();
@@ -155,12 +192,12 @@ class Chart {
         }
 
         // test
-        let posColumn = 0;
-        for (let i = 0; i < 20; i++) {
-            ctx.moveTo(posColumn, 0);
-            ctx.lineTo(posColumn, this.config.height);
-            posColumn += 25;
-        }
+        // let posColumn = 0;
+        // for (let i = 0; i < 20; i++) {
+        //     ctx.moveTo(posColumn, 0);
+        //     ctx.lineTo(posColumn, this.config.height);
+        //     posColumn += 25;
+        // }
         
         ctx.strokeStyle = '#bbb'; //eee
         ctx.lineWidth = 1;
@@ -187,42 +224,42 @@ class Chart {
         return this.drawData.miniMap;
     }
 
-    getParamsChart() {
-        const originalXs = this.data.columns[0].slice(1);
-        const gridWidth = this.config.width;
-        const preXs = this.normalize(originalXs, gridWidth);
-
-        const startPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.start) + 1;
-        const endPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.end) + 1;
-
-        this.drawData.startPoint = startPoint;
-        this.drawData.endPoint = endPoint;
-
-        // const currentXsL = this.data.columns[0].slice(1);
-        // const xsL = currentXsL.map(point => );
-
-        // const currentXs = this.data.columns[0].slice(startPoint, endPoint + 2);  // + 2 because in search was been slice(1)
-        // const xScale = this.config.width;
-        // const xs = this.normalize(currentXs, xScale);
-
-        const currentYs = this.data.columns[1].slice(startPoint, endPoint + 2);
-        const yScale = this.config.heightChart;
-        const ys = this.normalize(currentYs, yScale);
-
-        this.drawData.chart = {
-            xs: preXs,
-            ys: ys
-        }
-
-        return this.drawData.chart;
-    }
-
-    normalize(arr, param) {
+    normalize(arr, param, zero) {        
         const arrMax = Math.max(...arr);
         const arrMin = Math.min(...arr);
         const arrDif = arrMax - arrMin;
         const arrCoe = param / arrDif;
-        const points = arr.map(point => (point - arrMin) * arrCoe); 
+        let points = arr.map(point => (point - arrMin) * arrCoe);
+
+        return points;
+    }
+
+    
+    normalizeX(_arr, param, zero) {
+        const arr = _arr.slice();
+        const wrapperWidth = this.config.wrapperWidth;  
+        
+        if (zero) {
+            arr.unshift(0);
+            wrapperWidth < _arr[_arr.length - 1] && arr.push(wrapperWidth);
+        }
+
+        const arrMax = Math.max(...arr);
+        const arrMin = Math.min(...arr);
+        const arrDif = arrMax - arrMin;
+        const arrCoe = param / arrDif;
+
+        // pop & push because we have rounding
+        !zero && arr.pop();
+
+        let points = arr.map(point => (point - arrMin) * arrCoe);
+
+        !zero && points.push(param);
+
+        if (zero) {
+            arr.shift();
+            wrapperWidth < _arr[_arr.length - 1] && arr.pop();
+        }
 
         return points;
     }

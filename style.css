@@ -1,8 +1,10 @@
 .chart-wrapper {
     overflow: hidden;
+    width: 100%;
 }
 
 .canvas-chart {
+    width: 100%;
 }
 
 input {
