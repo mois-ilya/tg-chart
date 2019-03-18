@@ -2,8 +2,8 @@ class Chart {
     constructor(data) {
 
         this.config = {
-            start: 100,
-            end: 600,
+            start: 183549620678,
+            end: 1083549620678,
             height: 400,
             rows: 6,
             gap: 0.5,
@@ -21,6 +21,8 @@ class Chart {
         }
         
         this.data = data;
+        this.x = data.columns[0].slice(1);
+        this.y = data.columns[1].slice(1);
         this.drawData = {};
 
         // create canvas
@@ -69,61 +71,49 @@ class Chart {
     drawChart () {
         const ctx = this.ctx;
         const chart = this.getParamsChart();
-        const xPoints = chart.xs;
-        const yPoints = chart.ys;
+        console.log(chart);
         
-        ctx.beginPath();
-        ctx.moveTo(xPoints[0], yPoints[0]);
-        for (let i = 0; i < xPoints.length; i++) {
-            ctx.lineTo(xPoints[i],yPoints[i]);
-        }
-        ctx.strokeStyle = this.data.colors.y0;
-        ctx.lineJoin = "round";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.closePath();
+        // const xPoints = chart.xs;
+        // const yPoints = chart.ys;
+        
+        // ctx.beginPath();
+        // ctx.moveTo(xPoints[0], yPoints[0]);
+        // for (let i = 0; i < xPoints.length; i++) {
+        //     ctx.lineTo(xPoints[i],yPoints[i]);
+        // }
+        // ctx.strokeStyle = this.data.colors.y0;
+        // ctx.lineJoin = "round";
+        // ctx.lineWidth = 2;
+        // ctx.stroke();
+        // ctx.closePath();
     } 
 
-    getBoundaryPoints() {
-        const originalXs = this.data.columns[0].slice(1);
-        const gridWidth = this.config.width;
-        const preXs = this.normalizeX(originalXs, gridWidth, false);
-
-        const startPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.start) + 1;
-        const endPoint = preXs.findIndex(point => point / gridWidth * 999 >= this.config.end) + 1;
-
-        this.drawData.startPoint = startPoint;
-        this.drawData.endPoint = endPoint;
-
-        return {
-            startPoint: startPoint,
-            endPoint: endPoint
-        }
-    }
-
     getParamsChart() {
-        const originalXs = this.data.columns[0].slice(1);
+        const x = this.x;
+        const start = this.config.start;
+        const end = this.config.end;
+        const gap = end - start;
+        const lastX = x[x.length - 1];
 
-        const boundaryPoints = this.getBoundaryPoints(); 
-        const startPoint = boundaryPoints.startPoint;
-        const endPoint = boundaryPoints.endPoint;
+        const xToWindowWidth = this.normalize(x, this.config.wrapperWidth);        
+        const xs = xToWindowWidth.map(x => (x - start) * lastX / gap);
 
-        const originalXsToZero = originalXs.map(x => x - originalXs[0]);
-        const coeffAbsToOur = 999 / originalXsToZero[originalXsToZero.length - 1] ;
+        const normalEnd = end * this.config.wrapperWidth / lastX;
+        // поправить баг с округлением
+        const startPoint = xs.findIndex(point =>  point >= 0);
+        const endPoint =   xs.findIndex(point => point >= normalEnd) - 1;
+        debugger
 
-        let currentXs = this.data.columns[0].slice(startPoint, endPoint + 2);  // + 2 because in search was been slice(1)
-            currentXs = currentXs.map(x => x - originalXs[0]); 
-        
-        let xsL = currentXs.map(x => x * coeffAbsToOur); 
-            xsL = xsL.map(x => x - this.config.start);
-            xsL = this.normalizeX(xsL, this.config.wrapperWidth, true);
-
-        const currentYs = this.data.columns[1].slice(startPoint, endPoint + 2);
+        const y = this.y;
+        const currentYs = y.slice(startPoint, endPoint + 2);
         const yScale = this.config.heightChart;
-        const ys = this.normalize(currentYs, yScale); 
+        const arrMax = Math.max(...currentYs);
+        const arrMin = Math.min(...currentYs);
+
+        const ys = this.normalize(y, yScale, arrMin, arrMax); 
 
         this.drawData.chart = {
-            xs: xsL,
+            xs: xs,
             ys: ys
         }
 
@@ -224,42 +214,10 @@ class Chart {
         return this.drawData.miniMap;
     }
 
-    normalize(arr, param, zero) {        
-        const arrMax = Math.max(...arr);
-        const arrMin = Math.min(...arr);
-        const arrDif = arrMax - arrMin;
+    normalize(arr, param, min = Math.min(...arr), max = Math.max(...arr)) {
+        const arrDif = max - min;
         const arrCoe = param / arrDif;
-        let points = arr.map(point => (point - arrMin) * arrCoe);
-
-        return points;
-    }
-
-    
-    normalizeX(_arr, param, zero) {
-        const arr = _arr.slice();
-        const wrapperWidth = this.config.wrapperWidth;  
-        
-        if (zero) {
-            arr.unshift(0);
-            wrapperWidth < _arr[_arr.length - 1] && arr.push(wrapperWidth);
-        }
-
-        const arrMax = Math.max(...arr);
-        const arrMin = Math.min(...arr);
-        const arrDif = arrMax - arrMin;
-        const arrCoe = param / arrDif;
-
-        // pop & push because we have rounding
-        !zero && arr.pop();
-
-        let points = arr.map(point => (point - arrMin) * arrCoe);
-
-        !zero && points.push(param);
-
-        if (zero) {
-            arr.shift();
-            wrapperWidth < _arr[_arr.length - 1] && arr.pop();
-        }
+        let points = arr.map(point => (point - min) * arrCoe);
 
         return points;
     }
