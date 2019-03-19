@@ -9,9 +9,6 @@ class Chart {
             gap: 0.5,
             marginTopMinimap: 20,
             heightMiniMap: 60,
-            get width() {
-                return this.wrapperWidth*999 / (this.end - this.start) ;
-            },
             get heightRow() {
                 return this.height / (this.rows - this.gap)
             },
@@ -71,47 +68,76 @@ class Chart {
     drawChart () {
         const ctx = this.ctx;
         const chart = this.getParamsChart();
-        console.log(chart);
         
-        // const xPoints = chart.xs;
-        // const yPoints = chart.ys;
+        const xPoints = chart.xs;
+        const yPoints = chart.ys;
         
-        // ctx.beginPath();
-        // ctx.moveTo(xPoints[0], yPoints[0]);
-        // for (let i = 0; i < xPoints.length; i++) {
-        //     ctx.lineTo(xPoints[i],yPoints[i]);
-        // }
-        // ctx.strokeStyle = this.data.colors.y0;
-        // ctx.lineJoin = "round";
-        // ctx.lineWidth = 2;
-        // ctx.stroke();
-        // ctx.closePath();
+        ctx.beginPath();
+        ctx.moveTo(xPoints[0], yPoints[0]);
+        for (let i = 0; i < xPoints.length; i++) {
+            ctx.lineTo(xPoints[i],yPoints[i]);
+        }
+        ctx.strokeStyle = this.data.colors.y0;
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.closePath();
     } 
 
     getParamsChart() {
         const x = this.x;
-        const start = this.config.start;
-        const end = this.config.end;
-        const gap = end - start;
+        const wrapperWidth = this.config.wrapperWidth;
         const lastX = x[x.length - 1];
+        const coefNormal = wrapperWidth / lastX
+        const start = this.config.start * coefNormal;
+        const end = this.config.end * coefNormal;
+        const gap = end - start;
+        const last = lastX * coefNormal;
+        const wrapperHeigth = this.config.height - this.config.height/2/this.config.rows; //вычисление высоты графика
 
-        const xToWindowWidth = this.normalize(x, this.config.wrapperWidth);        
-        const xs = xToWindowWidth.map(x => (x - start) * lastX / gap);
-
-        const normalEnd = end * this.config.wrapperWidth / lastX;
+        const xToWindowWidth = this.normalize(x, wrapperWidth);
+        const xs = xToWindowWidth.map(x => (x - start) * last / gap);
+        
         // поправить баг с округлением
         const startPoint = xs.findIndex(point =>  point >= 0);
-        const endPoint =   xs.findIndex(point => point >= normalEnd) - 1;
-        debugger
+        const endPoint = xs.findIndex(point => point >= wrapperWidth) - 1;
 
         const y = this.y;
-        const currentYs = y.slice(startPoint, endPoint + 2);
+        const currentYs = y.slice(startPoint, endPoint + 1);
+
+        // calc boundary points
+        const beforePoint = {
+            y: y[startPoint - 1],
+            x: xs[startPoint - 1]
+        };
+
+        const firstPoint = {
+            y: y[startPoint],
+            x: xs[startPoint]
+        }
+        
+        const lastPoint = {
+            y: y[endPoint],
+            x: xs[endPoint]
+        }
+
+        const afterPoint = {
+            y: y[endPoint + 1],
+            x: xs[endPoint + 1]
+        }
+
+        const frontPoint =  (firstPoint.x*beforePoint.y - beforePoint.x*firstPoint.y) / (firstPoint.x - beforePoint.x);
+        const backPoint =  ((afterPoint.y - lastPoint.y)*wrapperWidth + (afterPoint.x*lastPoint.y - lastPoint.x*afterPoint.y)) / (afterPoint.x - lastPoint.x);
+
+        // calc y points
         const yScale = this.config.heightChart;
-        const arrMax = Math.max(...currentYs);
-        const arrMin = Math.min(...currentYs);
+        const arrMax = Math.max(...currentYs, frontPoint, backPoint);
+        const arrMin = Math.min(...currentYs, frontPoint, backPoint);
 
-        const ys = this.normalize(y, yScale, arrMin, arrMax); 
+        const ys = this.normalize(y, yScale, arrMin, arrMax).map(value => wrapperHeigth - value); 
 
+        this.drawData.start = start;
+        this.drawData.end = end;
         this.drawData.chart = {
             xs: xs,
             ys: ys
@@ -126,7 +152,35 @@ class Chart {
         const xPoints = miniMap.xs;
         const marginTop = this.config.marginTopMinimap + this.config.height;
         const yPoints = miniMap.ys.map(value => value + marginTop);
+
         
+        debugger
+        // draw mask
+        {
+            const x1 = this.drawData.start,
+                x2 = this.drawData.end,
+                y1 = marginTop,
+                y2 = this.config.heightMiniMap + marginTop,
+                colorFrame = "rgb(221,234,234)";
+
+            ctx.beginPath();
+
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x1, y2);
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(x2, y1);
+            
+            ctx.moveTo(x2 - 10, y1 + 2);
+            ctx.lineTo(x2 - 10, y2 - 2);
+            ctx.lineTo(x1 + 10, y2 - 2);
+            ctx.lineTo(x1 + 10, y1 + 2);
+
+            ctx.fillStyle = colorFrame;
+            ctx.strokeStyle = colorFrame;
+            ctx.fill();
+            ctx.closePath();        
+    
+        }
         // draw chart
         ctx.beginPath();
         ctx.moveTo(xPoints[0], yPoints[0]);
@@ -153,10 +207,10 @@ class Chart {
         ctx.lineTo(x2, y2);
         ctx.lineTo(x2, y1);
 
-        ctx.moveTo(x1+10, y1+10);
-        ctx.lineTo(x1+10, y1 + 100);
-        ctx.lineTo(x1 + 30, y1 + 100);
-        ctx.lineTo(x1 + 30, y1+10);
+        ctx.moveTo(this.drawData.end, y1 + 2);
+        ctx.lineTo(this.drawData.end, y2 - 2);
+        ctx.lineTo(this.drawData.start, y2 - 2);
+        ctx.lineTo(this.drawData.start, y1 + 2);
 
         // color & fiil
         ctx.fillStyle = color;
@@ -201,9 +255,10 @@ class Chart {
 
         const xChartScale = this.config.wrapperWidth;
         const yChartScale = this.config.heightMiniMap;
+        const heightMiniMap = this.config.heightMiniMap;
 
         const xsMiniMap = this.normalize(originalXs, xChartScale);
-        const ysMiniMap = this.normalize(originalYs, yChartScale);
+        const ysMiniMap = this.normalize(originalYs, yChartScale).map(value => heightMiniMap - value);
 
         this.drawData.allPoints = originalXs.length;
         this.drawData.miniMap = {

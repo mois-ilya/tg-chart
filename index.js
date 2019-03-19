@@ -8,7 +8,7 @@ const x = chart.x;
 const y = chart.y;
 
 const start = document.querySelector('.start__input');
-start.min = 0;
+start.min = 1;
 start.max = x[x.length - 1];
 start.value = chart.config.start;
 
@@ -18,7 +18,7 @@ start.addEventListener('input', () => {
 
 
 const end = document.querySelector('.end__input');
-end.min = 0;
+end.min = 2;
 end.max = x[x.length - 1];
 end.value = chart.config.end;
 
