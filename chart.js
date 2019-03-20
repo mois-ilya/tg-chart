@@ -20,12 +20,99 @@ class Chart {
         this.data = data;
         this.x = data.columns[0].slice(1);
         this.y = data.columns[1].slice(1);
-        this.drawData = {};
+        this.drawData = {
+            typeMove: false,
+            startPoint: false
+        };
 
         // create canvas
         this.canvas = document.createElement('canvas');
         this.canvas.classList.add('canvas-chart');
         this.ctx = this.canvas.getContext('2d');
+
+        this.canvas.addEventListener("touchstart", this.handleStart.bind(this), false);
+        this.canvas.addEventListener("touchend", this.handleEnd.bind(this), false);
+        //   this.canvas.addEventListener("touchcancel", this.handleCancel, false);
+        this.canvas.addEventListener("touchmove", this.handleMove.bind(this), false);
+    }
+
+    // обработать > 2 пальцев
+    handleStart(event) {
+        // console.log('Tuch start');
+        event.preventDefault()
+        const touches = event.changedTouches[0];
+        // const color = "#000000";
+
+        const ctx = this.ctx;
+        const canvas = this.canvas;
+
+        const x = touches.clientX - canvas.offsetLeft; 
+        const y = touches.clientY - canvas.offsetTop;
+        
+        const heightCanvas = this.config.height + this.config.marginTopMinimap + this.config.heightMiniMap;
+        
+        if ( heightCanvas > y && y > heightCanvas - this.config.heightMiniMap) {
+            if (x > this.drawData.start && x < this.drawData.start + 10) {
+                this.drawData.typeMove = 'first';
+                // console.log("first");
+            }
+            if (x > this.drawData.end - 10 && x < this.drawData.end) {
+                this.drawData.typeMove = 'end';
+                // console.log("end");
+            }
+            if (x < this.drawData.end - 10 && x > this.drawData.start + 10) {
+                this.drawData.typeMove = 'between';
+                // console.log("between");
+            }
+
+            this.drawData.startMove = x;
+            this.drawData.startBefore = this.config.start;
+            this.drawData.endBefore = this.config.end;
+            // console.log("Попал в игрик")
+        }
+    }
+
+    handleEnd() {
+        this.drawData.typeMove = false;
+        this.drawData.startPoint = false;
+        // console.log('Tuch end');
+    }
+
+    handleMove() {
+        event.preventDefault()
+        const typeMove = this.drawData.typeMove; 
+        if (!typeMove) {
+            return ;
+        }
+
+        const touches = event.changedTouches[0];
+        const ctx = this.ctx;
+        const canvas = this.canvas;
+        const coefNormal = this.drawData.coefNormal;
+
+        const x = touches.clientX - canvas.offsetLeft;
+        
+        const heightCanvas = this.config.height + this.config.marginTopMinimap + this.config.heightMiniMap;
+        
+        if (typeMove === 'first') {
+            this.config.start = x / coefNormal;
+            // console.log("Move first");
+        }
+        if (typeMove === 'end') {
+            this.config.end = x / coefNormal;
+            // console.log("Move end");
+        }
+        if (typeMove === 'between') {
+            const diff = this.drawData.startMove - x;
+            // console.log(diff);
+            const start = this.drawData.startBefore - (diff / coefNormal);
+            const end = this.drawData.endBefore - (diff / coefNormal);
+            this.setStart(start);
+            this.setEnd(end);
+            // console.log("Move between");
+        }
+
+        this.redrawing();
     }
 
     draw() {
@@ -58,7 +145,7 @@ class Chart {
 
     setEnd(value) {
         const config = this.config;
-        if (value < config.ctart) {
+        if (value < config.start) {
             throw 'End smaller then start'
         }
         config.end = Number(value);
@@ -94,6 +181,8 @@ class Chart {
         const gap = end - start;
         const last = lastX * coefNormal;
         const wrapperHeigth = this.config.height - this.config.height/2/this.config.rows; //вычисление высоты графика
+
+        this.drawData.coefNormal = coefNormal;
 
         const xToWindowWidth = this.normalize(x, wrapperWidth);
         const xs = xToWindowWidth.map(x => (x - start) * last / gap);
@@ -153,8 +242,6 @@ class Chart {
         const marginTop = this.config.marginTopMinimap + this.config.height;
         const yPoints = miniMap.ys.map(value => value + marginTop);
 
-        
-        debugger
         // draw mask
         {
             const x1 = this.drawData.start,
@@ -181,6 +268,7 @@ class Chart {
             ctx.closePath();        
     
         }
+
         // draw chart
         ctx.beginPath();
         ctx.moveTo(xPoints[0], yPoints[0]);
@@ -198,7 +286,7 @@ class Chart {
               x2 = this.config.wrapperWidth,
               y1 = marginTop,
               y2 = this.config.heightMiniMap + marginTop,
-              color = "rgba(0,0,0,0.1)";
+              color = "rgba(199,222,233,0.2)";
         
         ctx.beginPath();
 
