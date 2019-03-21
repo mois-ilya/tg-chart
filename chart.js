@@ -1,5 +1,7 @@
 class Chart {
     constructor(data) {
+        this.x = data.columns[0].slice(1);
+        this.y = data.columns[1].slice(1);
 
         this.config = {
             start: 183549620678,
@@ -9,6 +11,8 @@ class Chart {
             gap: 0.5,
             marginTopMinimap: 20,
             heightMiniMap: 60,
+            xMax:this.x[this.x.length -1],
+            xMin: 1,
             get heightRow() {
                 return this.height / (this.rows - this.gap)
             },
@@ -18,8 +22,6 @@ class Chart {
         }
         
         this.data = data;
-        this.x = data.columns[0].slice(1);
-        this.y = data.columns[1].slice(1);
         this.drawData = {
             typeMove: false,
             startPoint: false
@@ -41,9 +43,7 @@ class Chart {
         // console.log('Tuch start');
         event.preventDefault()
         const touches = event.changedTouches[0];
-        // const color = "#000000";
 
-        const ctx = this.ctx;
         const canvas = this.canvas;
 
         const x = touches.clientX - canvas.offsetLeft; 
@@ -68,7 +68,6 @@ class Chart {
             this.drawData.startMove = x;
             this.drawData.startBefore = this.config.start;
             this.drawData.endBefore = this.config.end;
-            // console.log("Попал в игрик")
         }
     }
 
@@ -95,11 +94,11 @@ class Chart {
         const heightCanvas = this.config.height + this.config.marginTopMinimap + this.config.heightMiniMap;
         
         if (typeMove === 'first') {
-            this.config.start = x / coefNormal;
+            this.setStart(x / coefNormal);
             // console.log("Move first");
         }
         if (typeMove === 'end') {
-            this.config.end = x / coefNormal;
+            this.setEnd(x / coefNormal);
             // console.log("Move end");
         }
         if (typeMove === 'between') {
@@ -137,19 +136,29 @@ class Chart {
     setStart(value) {
         const config = this.config;
         if (value > config.end) {
-            throw 'Start more then end'
+            config.start = config.end - 1;
+            this.redrawing();
+        } else if (value > config.xMin) {
+            config.start = Number(value);
+            this.redrawing();
+        } else if (value !== config.xMin) {
+            config.start = config.xMin;
+            this.redrawing();
         }
-        config.start = Number(value);
-        this.redrawing();
     }
 
     setEnd(value) {
         const config = this.config;
         if (value < config.start) {
-            throw 'End smaller then start'
+            config.end = config.start + 1;
+            this.redrawing();
+        } else if (value < config.xMax) {
+            config.end = Number(value);
+            this.redrawing();
+        } else if (value !== config.xMax){
+            config.end = config.xMax;
+            this.redrawing();
         }
-        config.end = Number(value);
-        this.redrawing();
     }
 
     drawChart () {
@@ -265,11 +274,11 @@ class Chart {
             ctx.fillStyle = colorFrame;
             ctx.strokeStyle = colorFrame;
             ctx.fill();
-            ctx.closePath();        
-    
+            ctx.closePath();
         }
 
         // draw chart
+        
         ctx.beginPath();
         ctx.moveTo(xPoints[0], yPoints[0]);
         for (let i = 1; i < this.drawData.allPoints; i++) {
@@ -282,33 +291,31 @@ class Chart {
         ctx.closePath();
 
         // draw mask
-        const x1 = 0,
-              x2 = this.config.wrapperWidth,
-              y1 = marginTop,
-              y2 = this.config.heightMiniMap + marginTop,
-              color = "rgba(199,222,233,0.2)";
-        
-        ctx.beginPath();
+        {
+            const x1 = 0,
+                x2 = this.config.wrapperWidth,
+                y1 = marginTop,
+                y2 = this.config.heightMiniMap + marginTop,
+                color = "rgba(199,222,233,0.2)";
+            
+            ctx.beginPath();
 
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x1, y2);
-        ctx.lineTo(x2, y2);
-        ctx.lineTo(x2, y1);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x1, y2);
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(x2, y1);
 
-        ctx.moveTo(this.drawData.end, y1 + 2);
-        ctx.lineTo(this.drawData.end, y2 - 2);
-        ctx.lineTo(this.drawData.start, y2 - 2);
-        ctx.lineTo(this.drawData.start, y1 + 2);
+            ctx.moveTo(this.drawData.end, y1 + 2);
+            ctx.lineTo(this.drawData.end, y2 - 2);
+            ctx.lineTo(this.drawData.start, y2 - 2);
+            ctx.lineTo(this.drawData.start, y1 + 2);
 
-        // color & fiil
-        ctx.fillStyle = color;
-        ctx.strokeStyle = color;
-        ctx.fill();
-        ctx.closePath();
-
-        // ctx.fillStyle = color;
-        // ctx.fillRect(x1, y1, x2, y2);
-        // ctx.clearRect(45,45,60,60);
+            // color & fiil
+            ctx.fillStyle = color;
+            ctx.strokeStyle = color;
+            ctx.fill();
+            ctx.closePath();
+        }
     }
 
     drawGrid () {
@@ -322,14 +329,6 @@ class Chart {
             ctx.lineTo(this.config.wrapperWidth, posRow);
             posRow += heightRow;
         }
-
-        // test
-        // let posColumn = 0;
-        // for (let i = 0; i < 20; i++) {
-        //     ctx.moveTo(posColumn, 0);
-        //     ctx.lineTo(posColumn, this.config.height);
-        //     posColumn += 25;
-        // }
         
         ctx.strokeStyle = '#bbb'; //eee
         ctx.lineWidth = 1;
@@ -367,7 +366,3 @@ class Chart {
 }
 
 export default Chart;
-
-// console.clear();
-// console.log("startPoint: " + startPoint);
-// console.log("endPoint: " + endPoint);
