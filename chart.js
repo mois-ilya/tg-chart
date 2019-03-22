@@ -3,6 +3,9 @@ class Chart {
         this.x = data.columns[0].slice(1);
         this.y = data.columns[1].slice(1);
 
+        
+        // data.columns.forEach()
+
         this.config = {
             start: 183549620678,
             end: 1083549620678,
@@ -11,7 +14,7 @@ class Chart {
             gap: 0.5,
             marginTopMinimap: 20,
             heightMiniMap: 60,
-            xMax:this.x[this.x.length -1],
+            xMax:this.x[this.x.length -1] - 1,
             xMin: 1,
             get heightRow() {
                 return this.height / (this.rows - this.gap)
@@ -36,13 +39,18 @@ class Chart {
         this.canvas.addEventListener("touchend", this.handleEnd.bind(this), false);
         //   this.canvas.addEventListener("touchcancel", this.handleCancel, false);
         this.canvas.addEventListener("touchmove", this.handleMove.bind(this), false);
+
+        // Тестирование с мышью
+        this.canvas.addEventListener("mousedown", this.handleStart.bind(this), false);
+        this.canvas.addEventListener("mouseup", this.handleEnd.bind(this), false);
+        this.canvas.addEventListener("mousemove", this.handleMove.bind(this), false);
     }
 
     // обработать > 2 пальцев
     handleStart(event) {
         // console.log('Tuch start');
         event.preventDefault()
-        const touches = event.changedTouches[0];
+        const touches = event.changedTouches && event.changedTouches[0] || event;
 
         const canvas = this.canvas;
 
@@ -84,7 +92,7 @@ class Chart {
             return ;
         }
 
-        const touches = event.changedTouches[0];
+        const touches = event.changedTouches && event.changedTouches[0] || event;
         const ctx = this.ctx;
         const canvas = this.canvas;
         const coefNormal = this.drawData.coefNormal;
@@ -129,7 +137,7 @@ class Chart {
         canvas.height = this.config.height + this.config.heightMiniMap + this.config.marginTopMinimap;
 
         this.drawGrid();
-        this.drawChart();
+        this.drawCharts();
         this.drawMiniMap();
     }
 
@@ -161,26 +169,32 @@ class Chart {
         }
     }
 
-    drawChart () {
+    drawCharts() {
+        const xPoints = this.getXChart();
+
+        const yCharts = this.getYCharts(xPoints);;
+
+        yCharts.forEach(yChart => {
+            this.drawChart(xPoints, yChart.yPoints, yChart.color);
+        });
+    }
+
+    drawChart(xPoints, yPoints, color) {
         const ctx = this.ctx;
-        const chart = this.getParamsChart();
-        
-        const xPoints = chart.xs;
-        const yPoints = chart.ys;
         
         ctx.beginPath();
         ctx.moveTo(xPoints[0], yPoints[0]);
         for (let i = 0; i < xPoints.length; i++) {
             ctx.lineTo(xPoints[i],yPoints[i]);
         }
-        ctx.strokeStyle = this.data.colors.y0;
+        ctx.strokeStyle = color;
         ctx.lineJoin = "round";
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.closePath();
     } 
 
-    getParamsChart() {
+    getXChart() {
         const x = this.x;
         const wrapperWidth = this.config.wrapperWidth;
         const lastX = x[x.length - 1];
@@ -189,18 +203,40 @@ class Chart {
         const end = this.config.end * coefNormal;
         const gap = end - start;
         const last = lastX * coefNormal;
-        const wrapperHeigth = this.config.height - this.config.height/2/this.config.rows; //вычисление высоты графика
-
+        
         this.drawData.coefNormal = coefNormal;
 
         const xToWindowWidth = this.normalize(x, wrapperWidth);
         const xs = xToWindowWidth.map(x => (x - start) * last / gap);
-        
+
+        this.drawData.start = start;
+        this.drawData.end = end;
+        this.drawData.xs = xs;
+        return xs;
+    }
+
+    getYCharts(xs) {
+        const wrapperHeigth = this.config.height - this.config.height/2/this.config.rows; //вычисление высоты графика
+        const yScale = this.config.heightChart;
+
+        const y = this.getYChart(xs, this.y);;
+
+
+        const yPoints = this.normalize(this.y, yScale, y.min, y.max).map(value => wrapperHeigth - value);
+        const color = this.data.colors.y0;
+
+        return [{
+            yPoints: yPoints,
+            color: color
+        }]
+    }
+
+    getYChart(xs, y) {
+        const wrapperWidth = this.config.wrapperWidth;
         // поправить баг с округлением
         const startPoint = xs.findIndex(point =>  point >= 0);
         const endPoint = xs.findIndex(point => point >= wrapperWidth) - 1;
 
-        const y = this.y;
         const currentYs = y.slice(startPoint, endPoint + 1);
 
         // calc boundary points
@@ -228,20 +264,13 @@ class Chart {
         const backPoint =  ((afterPoint.y - lastPoint.y)*wrapperWidth + (afterPoint.x*lastPoint.y - lastPoint.x*afterPoint.y)) / (afterPoint.x - lastPoint.x);
 
         // calc y points
-        const yScale = this.config.heightChart;
         const arrMax = Math.max(...currentYs, frontPoint, backPoint);
         const arrMin = Math.min(...currentYs, frontPoint, backPoint);
 
-        const ys = this.normalize(y, yScale, arrMin, arrMax).map(value => wrapperHeigth - value); 
-
-        this.drawData.start = start;
-        this.drawData.end = end;
-        this.drawData.chart = {
-            xs: xs,
-            ys: ys
-        }
-
-        return this.drawData.chart;
+        return {
+            max: arrMax,
+            min: arrMin
+        };
     }
 
     drawMiniMap() {
@@ -337,8 +366,8 @@ class Chart {
     }
 
     getParamsMiniMap() {
-        const originalXs = this.data.columns[0].slice(1);
-        const originalYs = this.data.columns[1].slice(1);
+        const originalXs = this.x;
+        const originalYs = this.y;
 
         const xChartScale = this.config.wrapperWidth;
         const yChartScale = this.config.heightMiniMap;
