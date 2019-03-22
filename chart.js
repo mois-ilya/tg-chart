@@ -1,21 +1,29 @@
 class Chart {
     constructor(data) {
-        this.x = data.columns[0].slice(1);
         this.y = data.columns[1].slice(1);
 
-        
-        // data.columns.forEach()
+        const columnsArr = data.columns.map(column => {
+            const head = column.shift();
+            return [head, column];
+        })
+        const columnsMap = new Map(columnsArr);
+
+        const x = columnsMap.get("x");
+        columnsMap.delete("x");
+        const y = columnsMap;
 
         this.config = {
-            start: 183549620678,
-            end: 1083549620678,
+            start: 1034341360222.1167,
+            end: 1355733117857.9006,
             height: 400,
             rows: 6,
             gap: 0.5,
             marginTopMinimap: 20,
             heightMiniMap: 60,
-            xMax:this.x[this.x.length -1] - 1,
+            xMax:x[x.length -1] - 1,
             xMin: 1,
+            x: x,
+            y: y,
             get heightRow() {
                 return this.height / (this.rows - this.gap)
             },
@@ -93,13 +101,10 @@ class Chart {
         }
 
         const touches = event.changedTouches && event.changedTouches[0] || event;
-        const ctx = this.ctx;
         const canvas = this.canvas;
         const coefNormal = this.drawData.coefNormal;
 
         const x = touches.clientX - canvas.offsetLeft;
-        
-        const heightCanvas = this.config.height + this.config.marginTopMinimap + this.config.heightMiniMap;
         
         if (typeMove === 'first') {
             this.setStart(x / coefNormal);
@@ -125,7 +130,7 @@ class Chart {
     draw() {
         const div = document.querySelector('.chart-wrapper');
         div.appendChild(this.canvas);
-        this.config.wrapperWidth = Number(div.clientWidth);
+        this.drawData.wrapperWidth = Number(div.clientWidth);
 
         this.redrawing();
     }
@@ -133,7 +138,7 @@ class Chart {
     redrawing() {
         const canvas = this.canvas;
         
-        canvas.width = this.config.wrapperWidth;
+        canvas.width = this.drawData.wrapperWidth;
         canvas.height = this.config.height + this.config.heightMiniMap + this.config.marginTopMinimap;
 
         this.drawGrid();
@@ -172,7 +177,9 @@ class Chart {
     drawCharts() {
         const xPoints = this.getXChart();
 
-        const yCharts = this.getYCharts(xPoints);;
+        const wrapperHeigth = this.config.height - this.config.height/2/this.config.rows; //вычисление высоты графика
+        const yScale = this.config.heightChart;
+        const yCharts = this.getYCharts(xPoints, wrapperHeigth, yScale);
 
         yCharts.forEach(yChart => {
             this.drawChart(xPoints, yChart.yPoints, yChart.color);
@@ -195,8 +202,8 @@ class Chart {
     } 
 
     getXChart() {
-        const x = this.x;
-        const wrapperWidth = this.config.wrapperWidth;
+        const x = this.config.x;
+        const wrapperWidth = this.drawData.wrapperWidth;
         const lastX = x[x.length - 1];
         const coefNormal = wrapperWidth / lastX
         const start = this.config.start * coefNormal;
@@ -215,24 +222,37 @@ class Chart {
         return xs;
     }
 
-    getYCharts(xs) {
-        const wrapperHeigth = this.config.height - this.config.height/2/this.config.rows; //вычисление высоты графика
-        const yScale = this.config.heightChart;
+    getYCharts(xs, wrapperHeigth ,yScale, condition) {
+        let min = 1000000000;
+        let max = 0;
+        const ys = this.config.y;
 
-        const y = this.getYChart(xs, this.y);;
+        ys.forEach(value => {
+            const params = this.getYChart(xs, value, condition);
 
+            min = Math.min(params.min, min) 
+            max = Math.max(params.max, max) 
+        });
 
-        const yPoints = this.normalize(this.y, yScale, y.min, y.max).map(value => wrapperHeigth - value);
-        const color = this.data.colors.y0;
+        const newMap = new Map()
+        ys.forEach((y, i) => {
+            const yPoints = this.normalize(y, yScale, min, max).map(value => wrapperHeigth - value);
+            const color = this.data.colors[i];
+            
+            const result = {
+                yPoints: yPoints,
+                color: color
+            } 
 
-        return [{
-            yPoints: yPoints,
-            color: color
-        }]
+            newMap.set(i,result)
+        })
+        
+        return newMap;
     }
 
-    getYChart(xs, y) {
-        const wrapperWidth = this.config.wrapperWidth;
+    getYChart(xs, y, condition) {
+        const wrapperWidth = this.drawData.wrapperWidth;
+
         // поправить баг с округлением
         const startPoint = xs.findIndex(point =>  point >= 0);
         const endPoint = xs.findIndex(point => point >= wrapperWidth) - 1;
@@ -240,32 +260,36 @@ class Chart {
         const currentYs = y.slice(startPoint, endPoint + 1);
 
         // calc boundary points
-        const beforePoint = {
-            y: y[startPoint - 1],
-            x: xs[startPoint - 1]
-        };
-
-        const firstPoint = {
-            y: y[startPoint],
-            x: xs[startPoint]
+        if (!condition) {
+            const beforePoint = {
+                y: y[startPoint - 1],
+                x: xs[startPoint - 1]
+            };
+    
+            const firstPoint = {
+                y: y[startPoint],
+                x: xs[startPoint]
+            }
+            
+            const lastPoint = {
+                y: y[endPoint],
+                x: xs[endPoint]
+            }
+    
+            const afterPoint = {
+                y: y[endPoint + 1],
+                x: xs[endPoint + 1]
+            }
+    
+            const frontPoint =  (firstPoint.x*beforePoint.y - beforePoint.x*firstPoint.y) / (firstPoint.x - beforePoint.x);
+            const backPoint =  ((afterPoint.y - lastPoint.y)*wrapperWidth + (afterPoint.x*lastPoint.y - lastPoint.x*afterPoint.y)) / (afterPoint.x - lastPoint.x);
+    
+            currentYs.push(frontPoint, backPoint)
         }
         
-        const lastPoint = {
-            y: y[endPoint],
-            x: xs[endPoint]
-        }
-
-        const afterPoint = {
-            y: y[endPoint + 1],
-            x: xs[endPoint + 1]
-        }
-
-        const frontPoint =  (firstPoint.x*beforePoint.y - beforePoint.x*firstPoint.y) / (firstPoint.x - beforePoint.x);
-        const backPoint =  ((afterPoint.y - lastPoint.y)*wrapperWidth + (afterPoint.x*lastPoint.y - lastPoint.x*afterPoint.y)) / (afterPoint.x - lastPoint.x);
-
         // calc y points
-        const arrMax = Math.max(...currentYs, frontPoint, backPoint);
-        const arrMin = Math.min(...currentYs, frontPoint, backPoint);
+        const arrMax = Math.max(...currentYs);
+        const arrMin = Math.min(...currentYs);
 
         return {
             max: arrMax,
@@ -276,9 +300,9 @@ class Chart {
     drawMiniMap() {
         const ctx = this.ctx;
         const miniMap = this.getParamsMiniMap();
-        const xPoints = miniMap.xs;
         const marginTop = this.config.marginTopMinimap + this.config.height;
-        const yPoints = miniMap.ys.map(value => value + marginTop);
+        const xPoints = miniMap.xs;
+        const yPoints = miniMap.ys;
 
         // draw mask
         {
@@ -308,21 +332,25 @@ class Chart {
 
         // draw chart
         
-        ctx.beginPath();
-        ctx.moveTo(xPoints[0], yPoints[0]);
-        for (let i = 1; i < this.drawData.allPoints; i++) {
-            ctx.lineTo(xPoints[i],yPoints[i]);
-        }
-        ctx.strokeStyle = this.data.colors.y0;
-        ctx.lineJoin = "round";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.closePath();
+        yPoints.forEach(yChart => {
+            ctx.beginPath();
+            ctx.moveTo(xPoints[0], yChart.yPoints[0]);
+            for (let i = 1; i < this.drawData.countAllPoints; i++) {
+                ctx.lineTo(xPoints[i],yChart.yPoints[i]);
+            }
+            ctx.strokeStyle = yChart.color;
+            ctx.lineJoin = "round";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.closePath();
+        });
+
+
 
         // draw mask
         {
             const x1 = 0,
-                x2 = this.config.wrapperWidth,
+                x2 = this.drawData.wrapperWidth,
                 y1 = marginTop,
                 y2 = this.config.heightMiniMap + marginTop,
                 color = "rgba(199,222,233,0.2)";
@@ -355,7 +383,7 @@ class Chart {
         ctx.beginPath();
         for (let i = 0; i < this.config.rows; i++) {
             ctx.moveTo(0, posRow);
-            ctx.lineTo(this.config.wrapperWidth, posRow);
+            ctx.lineTo(this.drawData.wrapperWidth, posRow);
             posRow += heightRow;
         }
         
@@ -366,17 +394,20 @@ class Chart {
     }
 
     getParamsMiniMap() {
-        const originalXs = this.x;
-        const originalYs = this.y;
-
-        const xChartScale = this.config.wrapperWidth;
-        const yChartScale = this.config.heightMiniMap;
-        const heightMiniMap = this.config.heightMiniMap;
-
+        const originalXs = this.config.x;
+        const xChartScale = this.drawData.wrapperWidth;
         const xsMiniMap = this.normalize(originalXs, xChartScale);
-        const ysMiniMap = this.normalize(originalYs, yChartScale).map(value => heightMiniMap - value);
 
-        this.drawData.allPoints = originalXs.length;
+        const marginTop = this.config.marginTopMinimap + this.config.height;
+        const heightMiniMap = this.config.heightMiniMap + marginTop;
+        const yChartScale = this.config.heightMiniMap;
+        const ysMiniMap = this.getYCharts(xsMiniMap, heightMiniMap, yChartScale, true)
+
+        // const originalYs = this.y;
+        // const ysMiniMap = this.normalize(originalYs, yChartScale).map(value => heightMiniMap - value);
+
+        debugger
+        this.drawData.countAllPoints = originalXs.length;
         this.drawData.miniMap = {
             xs: xsMiniMap,
             ys: ysMiniMap
