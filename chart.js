@@ -24,6 +24,24 @@ class Chart {
             xMin: 1,
             x: x,
             y: y,
+            mode: 'nightMode',
+            nightMode: {
+                background: 'rgb(36,47,62)',
+                color: '#FFF',
+                colorFrame: 'rgb(64,86,107)',
+                colorFilter: "rgba(10,10,10,0.2)",
+                text: "Swith to Day Mode"
+            },
+            dayMode: {
+                background: '#FFF',
+                color: '#000',
+                colorFrame: 'rgb(221,234,234)',
+                colorFilter: "rgba(199,222,233,0.2)",
+                text: "Swith to Night Mode"
+            },
+            get modeValues() {
+                return this[this.mode]
+            },
             get heightRow() {
                 return this.height / (this.rows - this.gap)
             },
@@ -45,13 +63,24 @@ class Chart {
 
         this.canvas.addEventListener("touchstart", this.handleStart.bind(this), false);
         this.canvas.addEventListener("touchend", this.handleEnd.bind(this), false);
-        //   this.canvas.addEventListener("touchcancel", this.handleCancel, false);
         this.canvas.addEventListener("touchmove", this.handleMove.bind(this), false);
 
         // Тестирование с мышью
         this.canvas.addEventListener("mousedown", this.handleStart.bind(this), false);
         this.canvas.addEventListener("mouseup", this.handleEnd.bind(this), false);
         this.canvas.addEventListener("mousemove", this.handleMove.bind(this), false);
+
+        // create button toggle mode
+        this.toggleModeButton = document.createElement('button');
+        this.toggleModeButton.classList.add('toggleModeButton');
+        this.toggleModeButton.addEventListener("click", () => {
+            this.config.mode = this.config.mode === "nightMode" ? "dayMode": "nightMode";
+            this.redrawing();
+        })
+
+        this.header = document.createElement('h2');
+        this.header.classList.add('canvasHead');
+        this.header.innerText = "Followers";
     }
 
     // обработать > 2 пальцев
@@ -115,12 +144,27 @@ class Chart {
             // console.log("Move end");
         }
         if (typeMove === 'between') {
+            const config = this.config;
             const diff = this.drawData.startMove - x;
-            // console.log(diff);
-            const start = this.drawData.startBefore - (diff / coefNormal);
-            const end = this.drawData.endBefore - (diff / coefNormal);
+
+            let start = this.drawData.startBefore - (diff / coefNormal);
+            let end = this.drawData.endBefore - (diff / coefNormal);
+
+            const lahe = this.drawData.endBefore - this.drawData.startBefore;
+
+            if (start < config.xMin) {
+                start = config.xMin;
+                end = config.xMin + lahe;
+            }
+            
+            if (end > config.xMax) {
+                start = config.xMax - lahe;
+                end = config.xMax;
+            }
+
             this.setStart(start);
             this.setEnd(end);
+            
             // console.log("Move between");
         }
 
@@ -129,15 +173,21 @@ class Chart {
 
     draw() {
         const div = document.querySelector('.chart-wrapper');
+        div.appendChild(this.header);
         div.appendChild(this.canvas);
+        div.appendChild(this.toggleModeButton);
         this.drawData.wrapperWidth = Number(div.clientWidth);
-
+        
         this.redrawing();
     }
 
     redrawing() {
         const canvas = this.canvas;
         
+        document.body.style.background = this.config.modeValues.background;
+        this.header.style.color = this.config.modeValues.color;
+        this.toggleModeButton.innerText = this.config.modeValues.text;
+
         canvas.width = this.drawData.wrapperWidth;
         canvas.height = this.config.height + this.config.heightMiniMap + this.config.marginTopMinimap;
 
@@ -151,7 +201,7 @@ class Chart {
         if (value > config.end) {
             config.start = config.end - 1;
             this.redrawing();
-        } else if (value > config.xMin) {
+        } else if (value >= config.xMin) {
             config.start = Number(value);
             this.redrawing();
         } else if (value !== config.xMin) {
@@ -165,7 +215,7 @@ class Chart {
         if (value < config.start) {
             config.end = config.start + 1;
             this.redrawing();
-        } else if (value < config.xMax) {
+        } else if (value <= config.xMax) {
             config.end = Number(value);
             this.redrawing();
         } else if (value !== config.xMax){
@@ -196,7 +246,7 @@ class Chart {
         }
         ctx.strokeStyle = color;
         ctx.lineJoin = "round";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.stroke();
         ctx.closePath();
     } 
@@ -310,7 +360,7 @@ class Chart {
                 x2 = this.drawData.end,
                 y1 = marginTop,
                 y2 = this.config.heightMiniMap + marginTop,
-                colorFrame = "rgb(221,234,234)";
+                colorFrame = this.config.modeValues.colorFrame;
 
             ctx.beginPath();
 
@@ -353,7 +403,7 @@ class Chart {
                 x2 = this.drawData.wrapperWidth,
                 y1 = marginTop,
                 y2 = this.config.heightMiniMap + marginTop,
-                color = "rgba(199,222,233,0.2)";
+                color = this.config.modeValues.colorFilter;
             
             ctx.beginPath();
 
@@ -403,10 +453,6 @@ class Chart {
         const yChartScale = this.config.heightMiniMap;
         const ysMiniMap = this.getYCharts(xsMiniMap, heightMiniMap, yChartScale, true)
 
-        // const originalYs = this.y;
-        // const ysMiniMap = this.normalize(originalYs, yChartScale).map(value => heightMiniMap - value);
-
-        debugger
         this.drawData.countAllPoints = originalXs.length;
         this.drawData.miniMap = {
             xs: xsMiniMap,

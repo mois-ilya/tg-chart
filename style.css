@@ -1,12 +1,32 @@
 .chart-wrapper {
     overflow: hidden;
     width: 100%;
+    flex-wrap: wrap;
+    display: flex;
 }
 
 .canvas-chart {
     width: 100%;
 }
 
-input {
-    width: 100%
+.toggleModeButton {
+    padding: 0;
+    border: none;
+    font: inherit;
+    background-color: transparent;
+    cursor: pointer;
+    outline: none;
+
+    margin: 2em auto;
+    color: rgb(54,168,241);
+    font-size: 1.5em;
+    font-family: Arial, Helvetica, sans-serif
+}
+
+.toggleModeButton:focus {
+    background: none;
+}
+
+.canvasHead {
+    font-family: Arial, Helvetica, sans-serif
 }
