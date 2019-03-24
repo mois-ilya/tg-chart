@@ -52,8 +52,10 @@ class Chart {
         
         this.data = data;
         this.drawData = {
+            animationState: false,
             typeMove: false,
-            startPoint: false
+            startPoint: false,
+            requestID: false
         };
 
         // create canvas
@@ -119,6 +121,8 @@ class Chart {
     handleEnd() {
         this.drawData.typeMove = false;
         this.drawData.startPoint = false;
+        this.drawData.startBefore = false;
+        this.drawData.endBefore = false;
         // console.log('Tuch end');
     }
 
@@ -191,7 +195,6 @@ class Chart {
         canvas.width = this.drawData.wrapperWidth;
         canvas.height = this.config.height + this.config.heightMiniMap + this.config.marginTopMinimap;
 
-        this.drawGrid();
         this.drawCharts();
         this.drawMiniMap();
     }
@@ -229,11 +232,69 @@ class Chart {
 
         const wrapperHeigth = this.config.height - this.config.height/2/this.config.rows; //вычисление высоты графика
         const yScale = this.config.heightChart;
-        const yCharts = this.getYCharts(xPoints, wrapperHeigth, yScale);
+        this.getYCharts(xPoints, wrapperHeigth, yScale);
 
-        yCharts.forEach(yChart => {
+        this.drawData.startAnimationTime = this.drawData.animationState
+                                         ? this.drawData.lastAnimationTime
+                                         : new Date();
+        this.drawData.animationState = true;
+        cancelAnimationFrame(this.drawData.requestID);
+        this.drawAnimateCharts();
+    }
+
+    drawAnimateCharts() {
+        this.drawData.requestID = requestAnimationFrame(this.drawAnimateCharts.bind(this));
+        
+        this.ctx.clearRect(0,0,this.drawData.wrapperWidth,this.config.height);
+        this.drawGrid();
+        
+        const timeChartY = this.calcTimeChart(this.drawData.ysOld, this.drawData.ys);
+        const xPoints = this.drawData.xs;
+
+        this.infoLog.push({
+            timeChartY: timeChartY,
+            requestID: this.drawData.requestID
+        })
+
+        this.drawData.timeChartY = timeChartY;
+        timeChartY.forEach(yChart => {
             this.drawChart(xPoints, yChart.yPoints, yChart.color);
         });
+    }
+
+    calcTimeChart(oldMap, toMap) {
+        let coef;
+        const lastAnimationTime = new Date();
+        if (typeof oldMap === "undefined") {
+            oldMap = toMap;
+            coef = 1;    
+        } else {
+            coef = (new Date() - this.drawData.startAnimationTime) / 1000 * 10;
+            coef = coef > 1 ? 1 : coef; 
+        }
+
+        this.drawData.lastAnimationTime = lastAnimationTime;
+
+        if (coef === 1) {
+            cancelAnimationFrame(this.drawData.requestID);
+            this.drawData.animationState = false;
+        }
+
+        const newtimeChart = new Map();
+
+        oldMap.forEach((yChart, key) => {
+            const arr = yChart.yPoints.map((value, index) => {
+                return value - (value - toMap.get(key).yPoints[index]) * coef
+            })
+
+            const result = {
+                yPoints: arr,
+                color: yChart.color
+            }
+            newtimeChart.set(key, result);
+        });
+
+        return newtimeChart; 
     }
 
     drawChart(xPoints, yPoints, color) {
@@ -296,7 +357,9 @@ class Chart {
 
             newMap.set(i,result)
         })
-        
+
+        this.drawData.ysOld = this.drawData.timeChartY;
+        this.drawData.ys = newMap;
         return newMap;
     }
 
@@ -349,7 +412,7 @@ class Chart {
 
     drawMiniMap() {
         const ctx = this.ctx;
-        const miniMap = this.getParamsMiniMap();
+        const miniMap = this.drawData.miniMap || this.getParamsMiniMap();
         const marginTop = this.config.marginTopMinimap + this.config.height;
         const xPoints = miniMap.xs;
         const yPoints = miniMap.ys;
@@ -357,10 +420,10 @@ class Chart {
         // draw mask
         {
             const x1 = this.drawData.start,
-                x2 = this.drawData.end,
-                y1 = marginTop,
-                y2 = this.config.heightMiniMap + marginTop,
-                colorFrame = this.config.modeValues.colorFrame;
+                  x2 = this.drawData.end,
+                  y1 = marginTop,
+                  y2 = this.config.heightMiniMap + marginTop,
+                  colorFrame = this.config.modeValues.colorFrame;
 
             ctx.beginPath();
 
@@ -395,15 +458,13 @@ class Chart {
             ctx.closePath();
         });
 
-
-
         // draw mask
         {
             const x1 = 0,
-                x2 = this.drawData.wrapperWidth,
-                y1 = marginTop,
-                y2 = this.config.heightMiniMap + marginTop,
-                color = this.config.modeValues.colorFilter;
+                  x2 = this.drawData.wrapperWidth,
+                  y1 = marginTop,
+                  y2 = this.config.heightMiniMap + marginTop,
+                  color = this.config.modeValues.colorFilter;
             
             ctx.beginPath();
 
@@ -437,7 +498,7 @@ class Chart {
             posRow += heightRow;
         }
         
-        ctx.strokeStyle = '#bbb'; //eee
+        ctx.strokeStyle = 'rgba(170, 170, 170, 0.3)';
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.closePath();
