@@ -20,6 +20,8 @@ class Chart {
             gap: 0.5,
             marginTopMinimap: 20,
             heightMiniMap: 60,
+            widthScroll: 10,
+            gapBetweenScroll: 15,
             xMax:x[x.length -1] - 1,
             xMin: 1,
             x: x,
@@ -190,7 +192,10 @@ class Chart {
         
         document.body.style.background = this.config.modeValues.background;
         this.header.style.color = this.config.modeValues.color;
-        this.toggleModeButton.innerText = this.config.modeValues.text;
+
+        if (this.toggleModeButton.innerText !== this.config.modeValues.text) {
+            this.toggleModeButton.innerText = this.config.modeValues.text;
+        }
 
         canvas.width = this.drawData.wrapperWidth;
         canvas.height = this.config.height + this.config.heightMiniMap + this.config.marginTopMinimap;
@@ -201,8 +206,10 @@ class Chart {
 
     setStart(value) {
         const config = this.config;
-        if (value > config.end) {
-            config.start = config.end - 1;
+        const coefNormal = this.drawData.coefNormal / 2;
+        const gap = (config.widthScroll + config.gapBetweenScroll) / coefNormal;
+        if (value > config.end - gap) {
+            config.start = config.end - gap;
             this.redrawing();
         } else if (value >= config.xMin) {
             config.start = Number(value);
@@ -215,8 +222,10 @@ class Chart {
 
     setEnd(value) {
         const config = this.config;
-        if (value < config.start) {
-            config.end = config.start + 1;
+        const coefNormal = this.drawData.coefNormal / 2;
+        const gap = (config.widthScroll + config.gapBetweenScroll) / coefNormal;
+        if (value < config.start + gap) {
+            config.end = config.start + gap;
             this.redrawing();
         } else if (value <= config.xMax) {
             config.end = Number(value);
@@ -245,16 +254,11 @@ class Chart {
     drawAnimateCharts() {
         this.drawData.requestID = requestAnimationFrame(this.drawAnimateCharts.bind(this));
         
-        this.ctx.clearRect(0,0,this.drawData.wrapperWidth,this.config.height);
+        this.ctx.clearRect(0,0,this.drawData.wrapperWidth,this.config.height + this.config.marginTopMinimap);
         this.drawGrid();
         
         const timeChartY = this.calcTimeChart(this.drawData.ysOld, this.drawData.ys);
         const xPoints = this.drawData.xs;
-
-        this.infoLog.push({
-            timeChartY: timeChartY,
-            requestID: this.drawData.requestID
-        })
 
         this.drawData.timeChartY = timeChartY;
         timeChartY.forEach(yChart => {
@@ -416,6 +420,7 @@ class Chart {
         const marginTop = this.config.marginTopMinimap + this.config.height;
         const xPoints = miniMap.xs;
         const yPoints = miniMap.ys;
+        const widthScroll = this.config.widthScroll;
 
         // draw mask
         {
@@ -432,10 +437,10 @@ class Chart {
             ctx.lineTo(x2, y2);
             ctx.lineTo(x2, y1);
             
-            ctx.moveTo(x2 - 10, y1 + 2);
-            ctx.lineTo(x2 - 10, y2 - 2);
-            ctx.lineTo(x1 + 10, y2 - 2);
-            ctx.lineTo(x1 + 10, y1 + 2);
+            ctx.moveTo(x2 - widthScroll, y1 + 2);
+            ctx.lineTo(x2 - widthScroll, y2 - 2);
+            ctx.lineTo(x1 + widthScroll, y2 - 2);
+            ctx.lineTo(x1 + widthScroll, y1 + 2);
 
             ctx.fillStyle = colorFrame;
             ctx.strokeStyle = colorFrame;
