@@ -1,8 +1,6 @@
-.chart-wrapper {
-    overflow: hidden;
-    width: 100%;
-    flex-wrap: wrap;
-    display: flex;
+
+body,html {
+    margin: 0;
 }
 
 .canvas-chart {
@@ -29,4 +27,12 @@
 
 .canvasHead {
     font-family: Arial, Helvetica, sans-serif
+}
+
+.wrapper {
+    margin: 0 8px;
+    width: calc(100% - 16px);
+    overflow: hidden;
+    flex-wrap: wrap;
+    display: flex;
 }

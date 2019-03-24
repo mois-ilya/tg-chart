@@ -96,8 +96,8 @@ class Chart {
         const canvas = this.canvas;
 
         const x = touches.clientX - canvas.offsetLeft; 
-        const y = touches.clientY - canvas.offsetTop;
-        
+        const y = touches.clientY + window.pageYOffset - canvas.offsetTop;
+
         const heightCanvas = this.config.height + this.config.marginTopMinimap + this.config.heightMiniMap;
         
         if ( heightCanvas > y && y > heightCanvas - this.config.heightMiniMap) {
@@ -177,8 +177,9 @@ class Chart {
         this.redrawing();
     }
 
-    draw() {
-        const div = document.querySelector('.chart-wrapper');
+    draw(div) {
+        this.wrapper = div;
+        div = div.querySelector('.wrapper');
         div.appendChild(this.header);
         div.appendChild(this.canvas);
         div.appendChild(this.toggleModeButton);
@@ -190,7 +191,7 @@ class Chart {
     redrawing() {
         const canvas = this.canvas;
         
-        document.body.style.background = this.config.modeValues.background;
+        this.wrapper.style.background = this.config.modeValues.background;
         this.header.style.color = this.config.modeValues.color;
 
         if (this.toggleModeButton.innerText !== this.config.modeValues.text) {
